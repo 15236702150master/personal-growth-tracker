@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人成长追踪器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部标题 -->
+        <header class="header">
+            <h1><i class="fas fa-chart-line"></i> 个人成长追踪器</h1>
+            <div class="header-actions">
+                <button id="exportBtn" class="btn btn-secondary">
+                    <i class="fas fa-download"></i> 导出数据
+                </button>
+            </div>
+        </header>
+
+        <!-- 统计面板 -->
+        <section class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-fire"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="streakDays">0</div>
+                    <div class="stat-label">连续天数</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="todayCompleted">0</div>
+                    <div class="stat-label">今日完成</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalCompleted">0</div>
+                    <div class="stat-label">总计完成</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 成长大纲模块 -->
+            <section class="module-card">
+                <div class="module-header">
+                    <h2><i class="fas fa-sitemap"></i> 成长大纲</h2>
+                    <div class="module-actions">
+                        <button id="outlineViewToggle" class="btn btn-outline">
+                            <i class="fas fa-list"></i> 列表视图
+                        </button>
+                        <button id="outlineAllCategoriesBtn" class="btn btn-outline">
+                            <i class="fas fa-globe"></i> 全分类视图
+                        </button>
+                        <button id="addOutlineBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 添加项目
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 分类标签 -->
+                <div class="category-tabs">
+                    <button class="tab-btn active" data-category="学习">
+                        <i class="fas fa-book"></i> 学习
+                    </button>
+                    <button class="tab-btn" data-category="健康">
+                        <i class="fas fa-heart"></i> 健康
+                    </button>
+                    <button class="tab-btn" data-category="工作">
+                        <i class="fas fa-briefcase"></i> 工作
+                    </button>
+                    <button class="tab-btn" id="addCategoryBtn">
+                        <i class="fas fa-plus"></i> 添加分类
+                    </button>
+                </div>
+
+                <div class="module-content">
+                    <div id="outlineContainer" class="outline-container">
+                        <!-- 大纲内容将在这里动态生成 -->
+                    </div>
+                    <div id="outlineMindMap" class="mind-map-container" style="display: none;">
+                        <!-- 思维导图将在这里生成 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 每日待办模块 -->
+            <section class="module-card">
+                <div class="module-header">
+                    <h2><i class="fas fa-tasks"></i> 今日待办</h2>
+                    <div class="module-actions">
+                        <button id="todoViewToggle" class="btn btn-outline">
+                            <i class="fas fa-list"></i> 列表视图
+                        </button>
+                        <button id="todoAllCategoriesBtn" class="btn btn-outline">
+                            <i class="fas fa-globe"></i> 全分类视图
+                        </button>
+                        <button id="addTodoBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 添加待办
+                        </button>
+                    </div>
+                </div>
+
+                <div class="module-content">
+                    <div id="todoContainer" class="todo-container">
+                        <!-- 待办内容将在这里动态生成 -->
+                    </div>
+                    <div id="todoMindMap" class="mind-map-container" style="display: none;">
+                        <!-- 待办思维导图将在这里生成 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 明日待办模块 -->
+            <section class="module-card">
+                <div class="module-header">
+                    <h2><i class="fas fa-calendar-plus"></i> 明日待办</h2>
+                    <div class="module-actions">
+                        <button id="tomorrowViewToggle" class="btn btn-outline">
+                            <i class="fas fa-list"></i> 列表视图
+                        </button>
+                        <button id="tomorrowAllCategoriesBtn" class="btn btn-outline">
+                            <i class="fas fa-globe"></i> 全分类视图
+                        </button>
+                        <button id="transferTodosBtn" class="btn btn-warning">
+                            <i class="fas fa-arrow-right"></i> 转换到今日
+                        </button>
+                        <button id="addTomorrowTodoBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 添加明日待办
+                        </button>
+                    </div>
+                </div>
+
+                <div class="module-content">
+                    <div id="tomorrowContainer" class="todo-container">
+                        <!-- 明日待办内容将在这里动态生成 -->
+                    </div>
+                    <div id="tomorrowMindMap" class="mind-map-container" style="display: none;">
+                        <!-- 明日待办思维导图将在这里生成 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 历史记录模块 -->
+            <section class="module-card">
+                <div class="module-header">
+                    <h2><i class="fas fa-history"></i> 历史记录</h2>
+                    <div class="module-actions">
+                        <button id="clearHistoryBtn" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> 清空历史
+                        </button>
+                    </div>
+                </div>
+                <div class="module-content">
+                    <div class="history-filter">
+                        <button id="historyTodayBtn" class="filter-btn active">今天</button>
+                        <button id="historyYesterdayBtn" class="filter-btn">昨天</button>
+                        <button id="historyAllBtn" class="filter-btn">全部</button>
+                    </div>
+                    <div id="historyContainer" class="history-container">
+                        <!-- 历史记录将在这里动态生成 -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 模态框 -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加项目</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="itemInput" placeholder="请输入内容..." />
+                <select id="categorySelect" style="display: none;">
+                    <option value="学习">学习</option>
+                    <option value="健康">健康</option>
+                    <option value="工作">工作</option>
+                </select>
+                <select id="outlineSelect" style="display: none;">
+                    <option value="">选择大纲项目（可选）</option>
+                </select>
+                <div id="syncToTodoContainer" style="display: none;">
+                    <label style="display: block; margin: 10px 0;">
+                        <input type="checkbox" id="syncToTodo" checked> 同时创建为待办事项
+                    </label>
+                </div>
+                <div id="lockTodoContainer" style="display: none;">
+                    <label style="display: block; margin: 10px 0;">
+                        <input type="checkbox" id="lockTodoCheckbox"> 锁定待办（每日重复）
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="itemCancel" class="btn btn-secondary">取消</button>
+                <button id="itemConfirm" class="btn btn-primary">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出菜单 -->
+    <div id="exportMenu" class="export-menu">
+        <div class="export-date-range">
+            <label>导出时间范围：</label>
+            <div class="date-inputs">
+                <input type="date" id="exportStartDate" />
+                <span>至</span>
+                <input type="date" id="exportEndDate" />
+            </div>
+            <div class="date-presets">
+                <button id="exportToday" class="preset-btn">今天</button>
+                <button id="exportYesterday" class="preset-btn">昨天</button>
+                <button id="exportThisWeek" class="preset-btn">本周</button>
+                <button id="exportAll" class="preset-btn active">全部</button>
+            </div>
+        </div>
+        <div class="export-actions">
+            <button id="exportJSON" class="export-option">
+                <i class="fas fa-file-code"></i> 导出为 JSON
+            </button>
+            <button id="exportTXT" class="export-option">
+                <i class="fas fa-file-alt"></i> 导出为 TXT
+            </button>
+        </div>
+    </div>
+
+    <!-- 全屏思维导图模态框 -->
+    <div id="fullscreenModal" class="fullscreen-modal">
+        <div class="fullscreen-header">
+            <h3 id="fullscreenTitle">思维导图</h3>
+            <button id="fullscreenClose" class="fullscreen-close">
+                <i class="fas fa-compress"></i> 退出全屏
+            </button>
+        </div>
+        <div id="fullscreenContent" class="fullscreen-content">
+            <!-- 全屏思维导图内容 -->
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
