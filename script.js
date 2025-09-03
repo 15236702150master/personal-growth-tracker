@@ -1327,6 +1327,7 @@ class PersonalGrowthTracker {
                 <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="tracker.toggleTodoComplete(${todo.id})"></div>
                 <span class="item-text">${todo.text}</span>
                 ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
+                ${todo.outlineRef ? `<span class="outline-ref-tag" style="background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-link"></i> ${todo.outlineRef.text}</span>` : '<span class="independent-tag" style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-star"></i> 独立待办</span>'}
                 <span class="category-tag" style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #6c757d;">${todo.category}</span>
             </div>
             <div class="item-actions">
@@ -2454,6 +2455,7 @@ class PersonalGrowthTracker {
                 <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="tracker.toggleTomorrowTodoComplete(${todo.id})"></div>
                 <span class="item-text">${todo.text}</span>
                 ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
+                ${todo.outlineRef ? `<span class="outline-ref-tag" style="background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-link"></i> ${todo.outlineRef.text}</span>` : '<span class="independent-tag" style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-star"></i> 独立待办</span>'}
                 <span class="category-tag" style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #6c757d;">${todo.category}</span>
             </div>
             <div class="item-actions">
