@@ -281,16 +281,17 @@ class PersonalGrowthTracker {
 
         // 今日待办相关按钮 - 修复：正确传递分类参数
         document.getElementById('addTodoBtn').addEventListener('click', () => {
-            this.showModal('添加今日待办', '', (value, category, outlineItem) => {
-                let outlineRef = null;
+            this.showModal('添加今日待办', '', (value, category, outlineItem, syncToTodo) => {
+                let outlineId = null;
                 if (outlineItem && outlineItem !== '') {
                     try {
-                        outlineRef = JSON.parse(outlineItem);
+                        const outlineRef = JSON.parse(outlineItem);
+                        outlineId = outlineRef.id;
                     } catch (e) {
                         console.error('解析大纲项目失败:', e);
                     }
                 }
-                this.addTodoItem(value, category, outlineRef);
+                this.addTodoItem(value, category, outlineId);
             }, true, true);
         });
 
@@ -312,17 +313,18 @@ class PersonalGrowthTracker {
 
         // 明日待办相关按钮 - 新增功能
         document.getElementById('addTomorrowTodoBtn').addEventListener('click', () => {
-            this.showModal('添加明日待办', '', (value, category, outlineItem) => {
-                let outlineRef = null;
+            this.showModal('添加明日待办', '', (value, category, outlineItem, syncToTodo) => {
+                let outlineId = null;
                 if (outlineItem && outlineItem !== '') {
                     try {
-                        outlineRef = JSON.parse(outlineItem);
+                        const outlineRef = JSON.parse(outlineItem);
+                        outlineId = outlineRef.id;
                     } catch (e) {
                         console.error('解析大纲项目失败:', e);
                     }
                 }
                 const isLocked = document.getElementById('lockTodoCheckbox').checked;
-                this.addTomorrowTodoItem(value, category, outlineRef, isLocked);
+                this.addTomorrowTodoItem(value, category, outlineId, isLocked);
             }, true, true);
         });
 
@@ -664,11 +666,7 @@ class PersonalGrowthTracker {
 
         // 如果选择同步到待办，自动创建待办事项
         if (syncToTodo) {
-            this.addTodoItem(text, category, {
-                id: item.id,
-                text: item.text,
-                category: category
-            });
+            this.addTodoItem(text, category, item.id);
         }
 
         this.saveData();
@@ -705,7 +703,7 @@ class PersonalGrowthTracker {
     }
 
     // 今日待办管理
-    addTodoItem(text, category = null, outlineRef = null, isLocked = false) {
+    addTodoItem(text, category = null, outlineId = null, isLocked = false) {
         const now = new Date();
         const today = now.toISOString().split('T')[0]; // YYYY-MM-DD格式
         
@@ -719,7 +717,7 @@ class PersonalGrowthTracker {
             targetDate: today,
             completedDate: null,
             isOverdue: false,
-            outlineRef: outlineRef,
+            outlineItem: outlineId,
             isLocked: false
         };
         
@@ -793,7 +791,7 @@ class PersonalGrowthTracker {
     }
 
     // 明日待办管理 - 新增功能
-    addTomorrowTodoItem(text, category, outlineRef, isLocked = false) {
+    addTomorrowTodoItem(text, category, outlineId, isLocked = false) {
         const now = new Date();
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -809,7 +807,7 @@ class PersonalGrowthTracker {
             targetDate: tomorrowStr,
             completedDate: null,
             isOverdue: false,
-            outlineRef: outlineRef || null,
+            outlineItem: outlineId,
             isLocked: isLocked
         };
         
@@ -1209,6 +1207,23 @@ class PersonalGrowthTracker {
         }
     }
     
+    // 获取待办项目关联的大纲项目文本
+    getTodoOutlineText(todo) {
+        console.log('getTodoOutlineText - Todo:', todo.text, 'outlineRef:', todo.outlineRef, 'outlineItem:', todo.outlineItem);
+        if (todo.outlineRef) {
+            // 手动添加的待办使用outlineRef对象
+            console.log('使用outlineRef:', todo.outlineRef.text);
+            return todo.outlineRef.text;
+        } else if (todo.outlineItem) {
+            // 快速创建的待办使用outlineItem ID
+            const outlineItem = this.findOutlineItem(todo.outlineItem);
+            console.log('使用outlineItem ID:', todo.outlineItem, '找到项目:', outlineItem);
+            return outlineItem ? outlineItem.text : null;
+        }
+        console.log('没有找到关联项目');
+        return null;
+    }
+
     // 查找大纲项目 - 修复重复定义问题
     findOutlineItem(id) {
         const findInItems = (items) => {
@@ -1327,7 +1342,7 @@ class PersonalGrowthTracker {
                 <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="tracker.toggleTodoComplete(${todo.id})"></div>
                 <span class="item-text">${todo.text}</span>
                 ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
-                ${todo.outlineRef ? `<span class="outline-ref-tag" style="background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-link"></i> ${todo.outlineRef.text}</span>` : '<span class="independent-tag" style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-star"></i> 独立待办</span>'}
+                ${this.getTodoOutlineText(todo) ? `<span class="outline-ref-tag"><i class="fas fa-link"></i> ${this.getTodoOutlineText(todo)}</span>` : '<span class="independent-tag"><i class="fas fa-star"></i> 独立待办</span>'}
                 <span class="category-tag" style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #6c757d;">${todo.category}</span>
             </div>
             <div class="item-actions">
@@ -2361,15 +2376,27 @@ class PersonalGrowthTracker {
     }
 
     renderFullscreenTodoMindMap() {
-        const todosByCategory = {};
+        const todosByProject = {};
+        const independentTodos = [];
+        
         this.data.todos.forEach(todo => {
-            if (!todosByCategory[todo.category]) {
-                todosByCategory[todo.category] = [];
+            const outlineText = this.getTodoOutlineText(todo);
+            console.log('思维导图分组 - Todo:', todo.text, 'outlineText:', outlineText);
+            if (outlineText) {
+                // 关联到大纲项目的待办
+                if (!todosByProject[outlineText]) {
+                    todosByProject[outlineText] = [];
+                }
+                todosByProject[outlineText].push(todo);
+                console.log('添加到项目组:', outlineText);
+            } else {
+                // 独立待办
+                independentTodos.push(todo);
+                console.log('添加到独立待办');
             }
-            todosByCategory[todo.category].push(todo);
         });
 
-        if (Object.keys(todosByCategory).length === 0) {
+        if (Object.keys(todosByProject).length === 0 && independentTodos.length === 0) {
             return '<div class="empty-state">暂无待办事项</div>';
         }
 
@@ -2377,62 +2404,101 @@ class PersonalGrowthTracker {
             <div class="fullscreen-mindmap">
                 <div class="mindmap-center">今日待办</div>
                 <div class="mindmap-branches">
-                    ${Object.keys(todosByCategory).map(category => `
+                    ${Object.keys(todosByProject).map(projectName => `
                         <div class="mindmap-branch">
-                            <div class="branch-node category-node">
-                                <i class="fas ${this.categoryIcons[category] || 'fa-folder'}"></i>
-                                ${category}
+                            <div class="branch-node category-node" style="background: #d4edda; color: #155724;">
+                                <i class="fas fa-link"></i>
+                                ${projectName}
                             </div>
                             <div class="sub-branches">
-                                ${todosByCategory[category].map(todo => `
+                                ${todosByProject[projectName].map(todo => `
                                     <div class="sub-branch todo-branch ${todo.completed ? 'completed' : ''}">
                                         ${todo.text}
                                         ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
-                                        ${todo.outlineRef ? `<div class="outline-ref">来自: ${todo.outlineRef.text}</div>` : ''}
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
                     `).join('')}
+                    ${independentTodos.length > 0 ? `
+                        <div class="mindmap-branch">
+                            <div class="branch-node category-node" style="background: #fff3cd; color: #856404;">
+                                <i class="fas fa-star"></i>
+                                独立待办
+                            </div>
+                            <div class="sub-branches">
+                                ${independentTodos.map(todo => `
+                                    <div class="sub-branch todo-branch ${todo.completed ? 'completed' : ''}">
+                                        ${todo.text}
+                                        ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
     }
 
     renderFullscreenTomorrowMindMap() {
-        const todosByCategory = {};
+        const todosByProject = {};
+        const independentTodos = [];
+        
         this.data.tomorrowTodos.forEach(todo => {
-            if (!todosByCategory[todo.category]) {
-                todosByCategory[todo.category] = [];
+            const outlineText = this.getTodoOutlineText(todo);
+            if (outlineText) {
+                // 关联到大纲项目的待办
+                if (!todosByProject[outlineText]) {
+                    todosByProject[outlineText] = [];
+                }
+                todosByProject[outlineText].push(todo);
+            } else {
+                // 独立待办
+                independentTodos.push(todo);
             }
-            todosByCategory[todo.category].push(todo);
         });
 
-        if (Object.keys(todosByCategory).length === 0) {
-            return '<div class="empty-state">暂无明日待办</div>';
+        if (Object.keys(todosByProject).length === 0 && independentTodos.length === 0) {
+            return '<div class="empty-state">暂无待办事项</div>';
         }
 
         return `
             <div class="fullscreen-mindmap">
                 <div class="mindmap-center">明日待办</div>
                 <div class="mindmap-branches">
-                    ${Object.keys(todosByCategory).map(category => `
+                    ${Object.keys(todosByProject).map(projectName => `
                         <div class="mindmap-branch">
-                            <div class="branch-node category-node">
-                                <i class="fas ${this.categoryIcons[category] || 'fa-folder'}"></i>
-                                ${category}
+                            <div class="branch-node category-node" style="background: #d4edda; color: #155724;">
+                                <i class="fas fa-link"></i>
+                                ${projectName}
                             </div>
                             <div class="sub-branches">
-                                ${todosByCategory[category].map(todo => `
+                                ${todosByProject[projectName].map(todo => `
                                     <div class="sub-branch todo-branch ${todo.completed ? 'completed' : ''}">
                                         ${todo.text}
                                         ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
-                                        ${todo.outlineRef ? `<div class="outline-ref">来自: ${todo.outlineRef.text}</div>` : ''}
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
                     `).join('')}
+                    ${independentTodos.length > 0 ? `
+                        <div class="mindmap-branch">
+                            <div class="branch-node category-node" style="background: #fff3cd; color: #856404;">
+                                <i class="fas fa-star"></i>
+                                独立待办
+                            </div>
+                            <div class="sub-branches">
+                                ${independentTodos.map(todo => `
+                                    <div class="sub-branch todo-branch ${todo.completed ? 'completed' : ''}">
+                                        ${todo.text}
+                                        ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
