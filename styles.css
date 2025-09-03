@@ -5,6 +5,66 @@
     box-sizing: border-box;
 }
 
+/* 重要待办样式 */
+.todo-item.important {
+    border-left: 4px solid #dc3545;
+    background: linear-gradient(90deg, rgba(220, 53, 69, 0.1) 0%, rgba(255, 255, 255, 0.95) 10%);
+}
+
+.todo-item.important .item-text {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.important-icon {
+    color: #dc3545;
+    margin-left: 8px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.important-btn {
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.important-btn:hover {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.important-btn.active {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+/* 链接管理按钮样式 */
+.link-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-edit {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.btn-edit:hover {
+    background: #138496;
+    transform: translateY(-1px);
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

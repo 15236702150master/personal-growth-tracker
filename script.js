@@ -718,7 +718,8 @@ class PersonalGrowthTracker {
             completedDate: null,
             isOverdue: false,
             outlineItem: outlineId,
-            isLocked: false
+            isLocked: false,
+            isImportant: false
         };
         
         this.data.todos.push(todo);
@@ -808,7 +809,8 @@ class PersonalGrowthTracker {
             completedDate: null,
             isOverdue: false,
             outlineItem: outlineId,
-            isLocked: isLocked
+            isLocked: isLocked,
+            isImportant: false
         };
         
         this.data.tomorrowTodos.push(todo);
@@ -1111,9 +1113,14 @@ class PersonalGrowthTracker {
                                     <a href="${link.url}" target="_blank" class="link-preview">
                                         ${this.getLinkTypeIcon(link.url)} ${link.title || link.url}
                                     </a>
-                                    <button class="btn-remove" onclick="tracker.removeLink(${outlineId}, ${index})">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <div class="link-actions">
+                                        <button class="btn-edit" onclick="tracker.editLink(${outlineId}, ${index})" title="编辑链接">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-remove" onclick="tracker.removeLink(${outlineId}, ${index})" title="删除链接">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             `).join('') : '<div class="empty-links">暂无链接</div>'}
                         </div>
@@ -1190,20 +1197,70 @@ class PersonalGrowthTracker {
         this.showNotification('链接添加成功');
     }
     
+    // 编辑链接
+    editLink(outlineId, linkIndex) {
+        const item = this.findOutlineItem(outlineId);
+        if (!item || !item.links || !item.links[linkIndex]) return;
+        
+        const link = item.links[linkIndex];
+        const newUrl = prompt('编辑链接地址：', link.url);
+        if (newUrl === null) return; // 用户取消
+        
+        const newTitle = prompt('编辑链接标题：', link.title || '');
+        if (newTitle === null) return; // 用户取消
+        
+        // 更新链接
+        item.links[linkIndex] = {
+            url: newUrl.trim(),
+            title: newTitle.trim()
+        };
+        
+        this.saveData();
+        this.renderOutlines();
+        
+        // 更新模态框
+        this.showLinkModal(outlineId);
+        
+        this.showNotification('链接编辑成功');
+    }
+    
     // 删除链接
     removeLink(outlineId, linkIndex) {
-        const item = this.findOutlineItem(outlineId);
-        if (!item || !item.links) return;
-        
         if (confirm('确定要删除这个链接吗？')) {
-            item.links.splice(linkIndex, 1);
-            this.saveData();
+            const item = this.findOutlineItem(outlineId);
+            if (item && item.links) {
+                item.links.splice(linkIndex, 1);
+                this.saveData();
+            }
             this.renderOutlines();
             
             // 更新模态框
             this.showLinkModal(outlineId);
             
             this.showNotification('链接删除成功');
+        }
+    }
+    
+    // 切换待办重要状态
+    toggleTodoImportant(todoId) {
+        const todo = this.data.todos.find(t => t.id === todoId);
+        if (todo) {
+            todo.isImportant = !todo.isImportant;
+            this.saveData();
+            this.renderTodos();
+            this.renderTomorrowTodos();
+            this.showNotification(todo.isImportant ? '已标记为重要待办' : '已取消重要标记');
+        }
+    }
+    
+    // 切换明日待办重要状态
+    toggleTomorrowTodoImportant(todoId) {
+        const todo = this.data.tomorrowTodos.find(t => t.id === todoId);
+        if (todo) {
+            todo.isImportant = !todo.isImportant;
+            this.saveData();
+            this.renderTomorrowTodos();
+            this.showNotification(todo.isImportant ? '已标记为重要待办' : '已取消重要标记');
         }
     }
     
@@ -1335,17 +1392,21 @@ class PersonalGrowthTracker {
 
     renderTodoItem(todo, container) {
         const div = document.createElement('div');
-        div.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        div.className = `todo-item ${todo.completed ? 'completed' : ''} ${todo.isImportant ? 'important' : ''}`;
         
         div.innerHTML = `
             <div class="item-content">
                 <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="tracker.toggleTodoComplete(${todo.id})"></div>
                 <span class="item-text">${todo.text}</span>
                 ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
+                ${todo.isImportant ? '<i class="fas fa-exclamation-circle important-icon" title="重要待办"></i>' : ''}
                 ${this.getTodoOutlineText(todo) ? `<span class="outline-ref-tag"><i class="fas fa-link"></i> ${this.getTodoOutlineText(todo)}</span>` : '<span class="independent-tag"><i class="fas fa-star"></i> 独立待办</span>'}
                 <span class="category-tag" style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #6c757d;">${todo.category}</span>
             </div>
             <div class="item-actions">
+                <button class="action-btn important-btn ${todo.isImportant ? 'active' : ''}" onclick="tracker.toggleTodoImportant(${todo.id})" title="${todo.isImportant ? '取消重要' : '标记重要'}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </button>
                 ${todo.isLocked ? `
                     <button class="action-btn unlock-btn" onclick="tracker.unlockTodoItem(${todo.id})" title="解锁">
                         <i class="fas fa-unlock"></i>
@@ -2514,17 +2575,21 @@ class PersonalGrowthTracker {
     // 明日待办项渲染
     renderTomorrowTodoItem(todo, container) {
         const div = document.createElement('div');
-        div.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        div.className = `todo-item ${todo.completed ? 'completed' : ''} ${todo.isImportant ? 'important' : ''}`;
         
         div.innerHTML = `
             <div class="item-content">
                 <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="tracker.toggleTomorrowTodoComplete(${todo.id})"></div>
                 <span class="item-text">${todo.text}</span>
                 ${todo.isLocked ? '<i class="fas fa-lock locked-icon" title="重复待办"></i>' : ''}
-                ${todo.outlineRef ? `<span class="outline-ref-tag" style="background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-link"></i> ${todo.outlineRef.text}</span>` : '<span class="independent-tag" style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 0.75rem; margin-left: 8px;"><i class="fas fa-star"></i> 独立待办</span>'}
+                ${todo.isImportant ? '<i class="fas fa-exclamation-circle important-icon" title="重要待办"></i>' : ''}
+                ${this.getTodoOutlineText(todo) ? `<span class="outline-ref-tag"><i class="fas fa-link"></i> ${this.getTodoOutlineText(todo)}</span>` : '<span class="independent-tag"><i class="fas fa-star"></i> 独立待办</span>'}
                 <span class="category-tag" style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #6c757d;">${todo.category}</span>
             </div>
             <div class="item-actions">
+                <button class="action-btn important-btn ${todo.isImportant ? 'active' : ''}" onclick="tracker.toggleTomorrowTodoImportant(${todo.id})" title="${todo.isImportant ? '取消重要' : '标记重要'}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </button>
                 ${todo.isLocked ? `
                     <button class="action-btn unlock-btn" onclick="tracker.unlockTomorrowTodoItem(${todo.id})" title="解锁">
                         <i class="fas fa-unlock"></i>
