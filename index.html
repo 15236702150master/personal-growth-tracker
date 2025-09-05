@@ -251,6 +251,66 @@
         </div>
     </div>
 
+    <!-- 资源管理侧边栏 -->
+    <div id="resource-sidebar" class="resource-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-bookmark"></i> 资源管理</h3>
+            <button class="sidebar-close" onclick="tracker.closeResourceSidebar()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="sidebar-content">
+            <div class="resource-panel">
+                <div class="resource-layout">
+                    <!-- 左侧分类导航 -->
+                    <div class="category-sidebar">
+                        <div class="category-header">
+                            <h4><i class="fas fa-tags"></i> 分类</h4>
+                            <button class="btn-manage-categories" onclick="tracker.showCategoryManageModal()" title="管理分类">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                        <div class="resource-categories" id="resource-categories">
+                            <div class="category-item active" data-category="all">
+                                <i class="fas fa-folder"></i> 全部资源
+                            </div>
+                            <div class="category-item" data-category="learning">
+                                <i class="fas fa-book"></i> 学习资源
+                            </div>
+                            <div class="category-item" data-category="tools">
+                                <i class="fas fa-tools"></i> 工具软件
+                            </div>
+                            <div class="category-item" data-category="videos">
+                                <i class="fas fa-video"></i> 视频教程
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧资源内容 -->
+                    <div class="resource-content">
+                        <div class="resource-search">
+                            <input type="text" id="resource-search" placeholder="搜索资源...">
+                        </div>
+                        <div class="resource-list" id="resource-list">
+                            <div class="empty-resources">
+                                <i class="fas fa-bookmark"></i>
+                                <p>暂无资源</p>
+                                <button class="btn-add-resource" onclick="tracker.showAddResourceModal()">
+                                    <i class="fas fa-plus"></i> 添加资源
+                                </button>
+                            </div>
+                        </div>
+                        <div class="resource-actions">
+                            <button class="btn btn-primary" onclick="tracker.showAddResourceModal()">
+                                <i class="fas fa-plus"></i> 添加资源
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

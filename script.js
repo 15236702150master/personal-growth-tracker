@@ -1038,6 +1038,9 @@ class PersonalGrowthTracker {
                     </div>
                 </div>
                 <div class="item-actions">
+                    <button class="action-btn resource-btn" onclick="window.tracker.openResourceSidebar('${item.text}')" title="打开资源管理">
+                        <i class="fas fa-bookmark"></i>
+                    </button>
                     <button class="action-btn quick-todo-btn" onclick="window.tracker.showQuickTodoModal(${item.id}, '${item.text.replace(/'/g, "\\'")}', '${this.currentCategory}')" title="快速创建待办">
                         <i class="fas fa-plus-circle"></i>
                     </button>
@@ -1262,6 +1265,877 @@ class PersonalGrowthTracker {
             this.renderTomorrowTodos();
             this.showNotification(todo.isImportant ? '已标记为重要待办' : '已取消重要标记');
         }
+    }
+    
+    // 资源管理侧边栏功能
+    openResourceSidebar(resourceUrl = '') {
+        const sidebar = document.getElementById('resource-sidebar');
+        const container = document.querySelector('.container');
+        
+        // 显示侧边栏
+        sidebar.classList.add('active');
+        container.classList.add('sidebar-open');
+        
+        // 渲染分类和资源列表
+        this.renderCategories();
+        this.renderResourceList();
+        
+        // 绑定分类切换事件
+        this.bindResourceEvents();
+        
+        // 更新添加资源模态框的分类选项
+        this.updateCategoryOptions();
+        
+        this.showNotification('资源管理面板已打开');
+    }
+    
+    closeResourceSidebar() {
+        const sidebar = document.getElementById('resource-sidebar');
+        const container = document.querySelector('.container');
+        
+        // 隐藏侧边栏
+        sidebar.classList.remove('active');
+        container.classList.remove('sidebar-open');
+        
+        // 清理搜索框
+        const searchInput = document.getElementById('resource-search');
+        if (searchInput) searchInput.value = '';
+        
+        this.showNotification('资源管理面板已关闭');
+    }
+
+    // 资源数据管理
+    getResources() {
+        return JSON.parse(localStorage.getItem('resources') || '[]');
+    }
+
+    saveResources(resources) {
+        localStorage.setItem('resources', JSON.stringify(resources));
+    }
+
+    addResource(title, url, category, description = '', parentId = null) {
+        const resources = this.getResources();
+        const newResource = {
+            id: Date.now(),
+            title,
+            url,
+            category,
+            description,
+            parentId,
+            children: [],
+            expanded: false,
+            createdAt: new Date().toISOString()
+        };
+        
+        if (parentId) {
+            // 如果有父资源，添加到父资源的children数组中
+            const parentResource = this.findResourceById(resources, parentId);
+            if (parentResource) {
+                if (!parentResource.children) {
+                    parentResource.children = [];
+                }
+                parentResource.children.push(newResource);
+                // 自动展开父资源以显示新添加的子资源
+                parentResource.expanded = true;
+            } else {
+                // 如果找不到父资源，添加为顶级资源
+                resources.push(newResource);
+            }
+        } else {
+            resources.push(newResource);
+        }
+        
+        this.saveResources(resources);
+        this.renderResourceList();
+        this.showNotification('资源添加成功');
+    }
+
+    findResourceById(resources, id) {
+        for (const resource of resources) {
+            if (resource.id === id) {
+                return resource;
+            }
+            if (resource.children && resource.children.length > 0) {
+                const found = this.findResourceById(resource.children, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    deleteResource(id) {
+        const resources = this.getResources();
+        this.removeResourceById(resources, id);
+        this.saveResources(resources);
+        this.renderResourceList();
+        this.showNotification('资源删除成功');
+    }
+
+    removeResourceById(resources, id) {
+        for (let i = 0; i < resources.length; i++) {
+            if (resources[i].id === id) {
+                resources.splice(i, 1);
+                return true;
+            }
+            if (resources[i].children && resources[i].children.length > 0) {
+                if (this.removeResourceById(resources[i].children, id)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    editResource(id, title, url, description) {
+        const resources = this.getResources();
+        const resource = this.findResourceById(resources, id);
+        if (resource) {
+            resource.title = title;
+            resource.url = url;
+            resource.description = description;
+            this.saveResources(resources);
+            this.renderResourceList();
+            this.showNotification('资源更新成功');
+        }
+    }
+
+    // 渲染资源列表
+    renderResourceList(category = 'all', searchTerm = '') {
+        const resourceList = document.getElementById('resource-list');
+        const resources = this.getResources();
+        
+        // 过滤资源 - 只过滤顶级资源，子资源会在renderResourceItems中递归处理
+        let filteredResources = this.filterResourcesRecursively(resources, category, searchTerm);
+
+        if (filteredResources.length === 0) {
+            resourceList.innerHTML = `
+                <div class="empty-resources">
+                    <i class="fas fa-bookmark"></i>
+                    <p>${searchTerm ? '未找到匹配的资源' : '暂无资源'}</p>
+                    <button class="btn-add-resource" onclick="tracker.showAddResourceModal()">
+                        <i class="fas fa-plus"></i> 添加资源
+                    </button>
+                </div>
+            `;
+        } else {
+            resourceList.innerHTML = this.renderResourceItems(filteredResources);
+        }
+    }
+
+    filterResourcesRecursively(resources, category, searchTerm) {
+        return resources.filter(resource => {
+            // 分类过滤
+            const categoryMatch = category === 'all' || resource.category === category;
+            
+            // 搜索过滤
+            const searchMatch = !searchTerm || 
+                resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (resource.description && resource.description.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            // 递归过滤子资源
+            if (resource.children && resource.children.length > 0) {
+                resource.children = this.filterResourcesRecursively(resource.children, category, searchTerm);
+            }
+            
+            return categoryMatch && searchMatch;
+        });
+    }
+
+    renderResourceItems(resources, level = 0) {
+        if (!resources || resources.length === 0) return '';
+        
+        return resources.map(resource => {
+            const indent = level * 20;
+            const hasChildren = resource.children && resource.children.length > 0;
+            
+            return `
+                <div class="resource-item" style="margin-left: ${indent}px;">
+                    <div class="resource-header">
+                        ${hasChildren ? `
+                            <button class="btn-toggle-children" onclick="tracker.toggleResourceChildren(${resource.id})" title="展开/收起">
+                                <i class="fas fa-chevron-${resource.expanded ? 'down' : 'right'}"></i>
+                            </button>
+                        ` : '<span class="resource-spacer"></span>'}
+                        <div class="resource-content-wrapper">
+                            <div class="resource-title">${resource.title}</div>
+                            ${resource.url ? this.renderResourceLink(resource.url) : '<span class="resource-no-url">暂无链接</span>'}
+                            ${resource.description ? `<div class="resource-description">${resource.description}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="resource-actions">
+                        <button class="btn-add-child" onclick="tracker.showAddResourceModal(${resource.id})" title="添加子资源">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="btn-edit-resource" onclick="tracker.showEditResourceModal(${resource.id})" title="编辑资源">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-delete-resource" onclick="tracker.deleteResource(${resource.id})" title="删除资源">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    ${hasChildren && resource.expanded ? `
+                        <div class="resource-children">
+                            ${this.renderResourceItems(resource.children, level + 1)}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    toggleResourceChildren(id) {
+        const resources = this.getResources();
+        const resource = this.findResourceById(resources, id);
+        if (resource) {
+            resource.expanded = !resource.expanded;
+            this.saveResources(resources);
+            this.renderResourceList();
+        }
+    }
+
+    renderResourceLink(url) {
+        const escapedUrl = url.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        
+        if (this.isLocalPath(url)) {
+            return `
+                <div class="resource-link-container">
+                    <span class="resource-url local-path" onclick="tracker.openLocalPath('${escapedUrl}')">
+                        <i class="fas fa-folder"></i> ${url}
+                    </span>
+                    <button class="btn-copy-path" onclick="tracker.copyToClipboard('${escapedUrl}', event)" title="复制路径">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            `;
+        } else if (this.isWebUrl(url)) {
+            return `<a href="${url.startsWith('http') ? url : 'https://' + url}" target="_blank" class="resource-url web-link">
+                <i class="fas fa-external-link-alt"></i> ${url}
+            </a>`;
+        } else {
+            return `<span class="resource-url unknown-link">
+                <i class="fas fa-question-circle"></i> ${url}
+            </span>`;
+        }
+    }
+
+    isLocalPath(path) {
+        // 检测Windows路径 (C:\, D:\, \\server\share)
+        if (/^[A-Za-z]:\\/.test(path) || /^\\\\/.test(path)) {
+            return true;
+        }
+        // 检测Unix/Linux路径 (/home, /usr, ./relative, ../relative)
+        if (/^\//.test(path) || /^\.\.?\//.test(path)) {
+            return true;
+        }
+        // 检测相对路径
+        if (/^[^:\/\\]+[\/\\]/.test(path)) {
+            return true;
+        }
+        return false;
+    }
+
+    isWebUrl(url) {
+        return /^https?:\/\//.test(url) || /^www\./.test(url) || /\.[a-z]{2,}/.test(url);
+    }
+
+    openLocalPath(path) {
+        // 检测是否支持本地文件链接
+        if (this.canOpenLocalFiles()) {
+            this.tryOpenLocalFile(path);
+        } else {
+            this.showLocalPathOptions(path);
+        }
+    }
+
+    canOpenLocalFiles() {
+        // 检测是否有本地文件访问能力
+        // 这里可以检测扩展或浏览器设置
+        return true; // 假设用户已安装扩展
+    }
+
+    tryOpenLocalFile(path) {
+        // 尝试多种方式打开本地路径
+        const methods = [
+            () => this.openWithFileProtocol(path),
+            () => this.openWithCustomProtocol(path),
+            () => this.openWithExtension(path)
+        ];
+
+        let success = false;
+        for (const method of methods) {
+            try {
+                method();
+                success = true;
+                this.showNotification('正在打开文件路径...', 'success');
+                break;
+            } catch (error) {
+                console.log('Method failed, trying next...', error);
+            }
+        }
+
+        if (!success) {
+            this.showLocalPathOptions(path);
+        }
+    }
+
+    openWithFileProtocol(path) {
+        // 方法1: 标准 file:// 协议
+        let fileUrl;
+        if (path.match(/^[A-Za-z]:\\/)) {
+            // Windows 路径
+            fileUrl = `file:///${path.replace(/\\/g, '/')}`;
+        } else if (path.startsWith('/')) {
+            // Unix/Linux 路径
+            fileUrl = `file://${path}`;
+        } else {
+            // 相对路径
+            fileUrl = `file:///${path.replace(/\\/g, '/')}`;
+        }
+
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.target = '_blank';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    openWithCustomProtocol(path) {
+        // 方法2: 自定义协议（某些扩展支持）
+        const customUrl = `local-file:///${path.replace(/\\/g, '/')}`;
+        window.open(customUrl, '_blank');
+    }
+
+    openWithExtension(path) {
+        // 方法3: 通过扩展API（如果可用）
+        if (window.chrome && window.chrome.runtime) {
+            // 尝试通过Chrome扩展
+            window.postMessage({
+                type: 'OPEN_LOCAL_FILE',
+                path: path
+            }, '*');
+        }
+    }
+
+    showLocalPathOptions(path) {
+        const escapedPath = path.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-folder-open"></i> 本地文件访问</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="extension-status">
+                        <h4><i class="fas fa-puzzle-piece"></i> 浏览器扩展状态</h4>
+                        <p>如果您已安装 "Enable Local File Links" 扩展，点击下方按钮重试：</p>
+                        <button class="btn btn-primary" onclick="tracker.tryOpenLocalFile('${escapedPath}'); this.parentElement.parentElement.parentElement.parentElement.remove();">
+                            <i class="fas fa-external-link-alt"></i> 重新尝试打开
+                        </button>
+                    </div>
+                    
+                    <div class="path-display">
+                        <label>文件路径：</label>
+                        <code>${path}</code>
+                        <button class="btn btn-sm btn-secondary" onclick="tracker.copyToClipboard('${escapedPath}', event)">
+                            <i class="fas fa-copy"></i> 复制路径
+                        </button>
+                    </div>
+                    
+                    <div class="path-options">
+                        <h4><i class="fas fa-lightbulb"></i> 手动打开方式：</h4>
+                        <div class="option-grid">
+                            <div class="option-item">
+                                <strong>Windows 文件管理器：</strong>
+                                <ul>
+                                    <li>按 <kbd>Win + E</kbd> 打开文件管理器</li>
+                                    <li>在地址栏粘贴路径并回车</li>
+                                    <li>或按 <kbd>Ctrl + L</kbd> 后粘贴路径</li>
+                                </ul>
+                            </div>
+                            <div class="option-item">
+                                <strong>运行窗口：</strong>
+                                <ul>
+                                    <li>按 <kbd>Win + R</kbd> 打开运行窗口</li>
+                                    <li>粘贴路径并按回车</li>
+                                </ul>
+                            </div>
+                            <div class="option-item">
+                                <strong>命令行：</strong>
+                                <ul>
+                                    <li>打开命令提示符或PowerShell</li>
+                                    <li>输入: <code>explorer "${path}"</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="extension-help">
+                        <h4><i class="fas fa-info-circle"></i> 扩展安装提示</h4>
+                        <p>为了直接点击打开本地文件，建议安装浏览器扩展：</p>
+                        <ul>
+                            <li><strong>Chrome:</strong> "Enable Local File Links" 或 "Local File Protocol"</li>
+                            <li><strong>Firefox:</strong> "Local Filesystem Links" 或修改 about:config</li>
+                            <li><strong>Edge:</strong> "Enable Local File Links"</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">关闭</button>
+                    <button class="btn btn-primary" onclick="tracker.copyToClipboard('${escapedPath}', event)">
+                        <i class="fas fa-copy"></i> 复制路径
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    copyToClipboard(text, event) {
+        event.stopPropagation();
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showNotification('路径已复制到剪贴板');
+            }).catch(() => {
+                this.fallbackCopyToClipboard(text);
+            });
+        } else {
+            this.fallbackCopyToClipboard(text);
+        }
+    }
+
+    fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            this.showNotification('路径已复制到剪贴板');
+        } catch (err) {
+            this.showNotification('复制失败，请手动复制', 'error');
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+
+    getCategoryName(category) {
+        const categories = this.getCategories();
+        const categoryObj = categories.find(cat => cat.id === category);
+        return categoryObj ? categoryObj.name : category;
+    }
+
+    // 绑定资源管理事件
+    bindResourceEvents() {
+        // 分类切换
+        document.querySelectorAll('.category-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                // 防止点击编辑/删除按钮时触发分类切换
+                if (e.target.closest('.category-actions')) {
+                    return;
+                }
+                
+                document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+                
+                // 确保点击的是分类项本身
+                const categoryItem = e.target.closest('.category-item');
+                if (categoryItem) {
+                    categoryItem.classList.add('active');
+                    const category = categoryItem.dataset.category;
+                    const searchTerm = document.getElementById('resource-search').value;
+                    this.renderResourceList(category, searchTerm);
+                }
+            });
+        });
+
+        // 搜索功能
+        const searchInput = document.getElementById('resource-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const activeCategory = document.querySelector('.category-item.active');
+                if (activeCategory) {
+                    this.renderResourceList(activeCategory.dataset.category, e.target.value);
+                }
+            });
+        }
+    }
+
+    // 显示添加资源模态框
+    showAddResourceModal(parentId = null) {
+        console.log('showAddResourceModal called with parentId:', parentId);
+        const resources = this.getResources();
+        const parentResource = parentId ? this.findResourceById(resources, parentId) : null;
+        console.log('Found parent resource:', parentResource);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>${parentResource ? `添加子资源到 "${parentResource.title}"` : '添加资源'}</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="parent-resource-id" value="${parentId || ''}">
+                    <div class="form-group">
+                        <label>资源标题 *</label>
+                        <input type="text" id="resource-title" placeholder="输入资源标题">
+                    </div>
+                    <div class="form-group">
+                        <label>资源链接（可选）</label>
+                        <input type="url" id="resource-url" placeholder="https://example.com">
+                    </div>
+                    ${!parentId ? `
+                        <div class="form-group">
+                            <label>资源分类</label>
+                            <select id="resource-category">
+                                <option value="learning">学习资源</option>
+                                <option value="tools">工具软件</option>
+                                <option value="videos">视频教程</option>
+                            </select>
+                        </div>
+                    ` : ''}
+                    <div class="form-group">
+                        <label>资源描述（可选）</label>
+                        <textarea id="resource-description" placeholder="简要描述这个资源..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">取消</button>
+                    <button class="btn btn-primary" onclick="tracker.handleAddResource()">添加</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // 确保分类选项更新
+        setTimeout(() => {
+            this.updateCategoryOptions();
+        }, 100);
+    }
+
+    handleAddResource() {
+        console.log('handleAddResource called');
+        const title = document.getElementById('resource-title').value.trim();
+        const url = document.getElementById('resource-url').value.trim();
+        const categorySelect = document.getElementById('resource-category');
+        const category = categorySelect ? categorySelect.value : 'learning';
+        const description = document.getElementById('resource-description').value.trim();
+        const parentId = document.getElementById('parent-resource-id').value || null;
+
+        console.log('Form data:', { title, url, category, description, parentId });
+
+        if (!title) {
+            this.showNotification('请填写资源标题', 'error');
+            return;
+        }
+
+        // 如果是子资源，使用父资源的分类
+        if (parentId && parentId !== '' && parentId !== 'null') {
+            console.log('Adding child resource with parentId:', parentId);
+            const parentResource = this.findResourceById(this.getResources(), parseInt(parentId));
+            console.log('Parent resource found:', parentResource);
+            const finalCategory = parentResource ? parentResource.category : category;
+            this.addResource(title, url || '', finalCategory, description, parseInt(parentId));
+        } else {
+            console.log('Adding top-level resource');
+            this.addResource(title, url || '', category, description);
+        }
+        
+        document.querySelector('.modal-overlay').remove();
+    }
+
+    showEditResourceModal(id) {
+        const resources = this.getResources();
+        const resource = this.findResourceById(resources, id);
+        
+        if (!resource) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑资源</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit-resource-id" value="${resource.id}">
+                    <div class="form-group">
+                        <label>资源标题 *</label>
+                        <input type="text" id="edit-resource-title" value="${resource.title}">
+                    </div>
+                    <div class="form-group">
+                        <label>资源链接（可选）</label>
+                        <input type="url" id="edit-resource-url" value="${resource.url || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>资源描述（可选）</label>
+                        <textarea id="edit-resource-description">${resource.description || ''}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">取消</button>
+                    <button class="btn btn-primary" onclick="tracker.handleEditResource()">保存</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    handleEditResource() {
+        const id = parseInt(document.getElementById('edit-resource-id').value);
+        const title = document.getElementById('edit-resource-title').value.trim();
+        const url = document.getElementById('edit-resource-url').value.trim();
+        const description = document.getElementById('edit-resource-description').value.trim();
+
+        if (!title) {
+            this.showNotification('请填写资源标题', 'error');
+            return;
+        }
+
+        this.editResource(id, title, url, description);
+        document.querySelector('.modal-overlay').remove();
+    }
+
+    // 分类管理功能
+    getCategories() {
+        const baseDefaultCategories = [
+            { id: 'all', name: '全部资源', icon: 'fas fa-folder', isDefault: true },
+            { id: 'learning', name: '学习资源', icon: 'fas fa-book', isDefault: true },
+            { id: 'tools', name: '工具软件', icon: 'fas fa-tools', isDefault: true },
+            { id: 'videos', name: '视频教程', icon: 'fas fa-video', isDefault: true }
+        ];
+        
+        // 获取已保存的分类（包括修改过的默认分类）
+        const savedCategories = JSON.parse(localStorage.getItem('allResourceCategories') || '[]');
+        
+        // 如果没有保存的分类，使用基础默认分类
+        if (savedCategories.length === 0) {
+            return baseDefaultCategories;
+        }
+        
+        return savedCategories;
+    }
+
+    saveCategories(categories) {
+        localStorage.setItem('allResourceCategories', JSON.stringify(categories));
+    }
+
+    addCategory(name, icon) {
+        const categories = this.getCategories();
+        const newCategory = {
+            id: 'custom_' + Date.now(),
+            name,
+            icon,
+            isDefault: false
+        };
+        categories.push(newCategory);
+        this.saveCategories(categories);
+        this.renderCategories();
+        this.updateCategoryOptions();
+        this.showNotification('分类添加成功');
+    }
+
+    deleteCategory(id) {
+        // "全部资源"分类不能删除
+        if (id === 'all') {
+            this.showNotification('全部资源分类不能删除', 'error');
+            return;
+        }
+        
+        const categories = this.getCategories();
+        const filteredCategories = categories.filter(cat => cat.id !== id);
+        this.saveCategories(filteredCategories);
+        
+        // 如果删除的分类有资源，将它们移到学习资源分类
+        const resources = this.getResources();
+        const updatedResources = resources.map(resource => {
+            if (resource.category === id) {
+                resource.category = 'learning';
+            }
+            return resource;
+        });
+        this.saveResources(updatedResources);
+        
+        this.renderCategories();
+        this.updateCategoryOptions();
+        this.renderResourceList();
+        this.showNotification('分类删除成功');
+    }
+
+    editCategory(id, newName, newIcon) {
+        const categories = this.getCategories();
+        const categoryIndex = categories.findIndex(cat => cat.id === id);
+        if (categoryIndex !== -1) {
+            categories[categoryIndex].name = newName;
+            categories[categoryIndex].icon = newIcon;
+            this.saveCategories(categories);
+            this.renderCategories();
+            this.updateCategoryOptions();
+            this.showNotification('分类更新成功');
+        }
+    }
+
+    renderCategories() {
+        const categoriesContainer = document.getElementById('resource-categories');
+        const categories = this.getCategories();
+        
+        categoriesContainer.innerHTML = categories.map(category => `
+            <div class="category-item ${category.id === 'all' ? 'active' : ''}" data-category="${category.id}">
+                <i class="${category.icon}"></i> ${category.name}
+                <div class="category-actions">
+                    <button class="btn-edit-category" onclick="tracker.showEditCategoryModal('${category.id}')" title="编辑">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${category.id !== 'all' ? `
+                        <button class="btn-delete-category" onclick="tracker.deleteCategory('${category.id}')" title="删除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateCategoryOptions() {
+        const categorySelect = document.getElementById('resource-category');
+        if (categorySelect) {
+            const categories = this.getCategories().filter(cat => cat.id !== 'all');
+            categorySelect.innerHTML = categories.map(category => 
+                `<option value="${category.id}">${category.name}</option>`
+            ).join('');
+        }
+    }
+
+    showCategoryManageModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content category-manage-modal">
+                <div class="modal-header">
+                    <h3>管理分类</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="add-category-section">
+                        <h4>添加新分类</h4>
+                        <div class="form-group">
+                            <label>分类名称</label>
+                            <input type="text" id="new-category-name" placeholder="输入分类名称">
+                        </div>
+                        <div class="form-group">
+                            <label>图标</label>
+                            <select id="new-category-icon">
+                                <option value="fas fa-folder">📁 文件夹</option>
+                                <option value="fas fa-book">📚 书籍</option>
+                                <option value="fas fa-tools">🔧 工具</option>
+                                <option value="fas fa-video">🎥 视频</option>
+                                <option value="fas fa-link">🔗 链接</option>
+                                <option value="fas fa-code">💻 代码</option>
+                                <option value="fas fa-image">🖼️ 图片</option>
+                                <option value="fas fa-music">🎵 音乐</option>
+                                <option value="fas fa-file-pdf">📄 文档</option>
+                                <option value="fas fa-star">⭐ 收藏</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="tracker.handleAddCategory()">
+                            <i class="fas fa-plus"></i> 添加分类
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    handleAddCategory() {
+        const name = document.getElementById('new-category-name').value.trim();
+        const icon = document.getElementById('new-category-icon').value;
+
+        if (!name) {
+            this.showNotification('请输入分类名称', 'error');
+            return;
+        }
+
+        this.addCategory(name, icon);
+        document.querySelector('.modal-overlay').remove();
+    }
+
+    showEditCategoryModal(categoryId) {
+        const categories = this.getCategories();
+        const category = categories.find(cat => cat.id === categoryId);
+        
+        if (!category) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑分类</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>分类名称</label>
+                        <input type="text" id="edit-category-name" value="${category.name}">
+                    </div>
+                    <div class="form-group">
+                        <label>图标</label>
+                        <select id="edit-category-icon">
+                            <option value="fas fa-folder" ${category.icon === 'fas fa-folder' ? 'selected' : ''}>📁 文件夹</option>
+                            <option value="fas fa-book" ${category.icon === 'fas fa-book' ? 'selected' : ''}>📚 书籍</option>
+                            <option value="fas fa-tools" ${category.icon === 'fas fa-tools' ? 'selected' : ''}>🔧 工具</option>
+                            <option value="fas fa-video" ${category.icon === 'fas fa-video' ? 'selected' : ''}>🎥 视频</option>
+                            <option value="fas fa-link" ${category.icon === 'fas fa-link' ? 'selected' : ''}>🔗 链接</option>
+                            <option value="fas fa-code" ${category.icon === 'fas fa-code' ? 'selected' : ''}>💻 代码</option>
+                            <option value="fas fa-image" ${category.icon === 'fas fa-image' ? 'selected' : ''}>🖼️ 图片</option>
+                            <option value="fas fa-music" ${category.icon === 'fas fa-music' ? 'selected' : ''}>🎵 音乐</option>
+                            <option value="fas fa-file-pdf" ${category.icon === 'fas fa-file-pdf' ? 'selected' : ''}>📄 文档</option>
+                            <option value="fas fa-star" ${category.icon === 'fas fa-star' ? 'selected' : ''}>⭐ 收藏</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">取消</button>
+                    <button class="btn btn-primary" onclick="tracker.handleEditCategory('${categoryId}')">保存</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    handleEditCategory(categoryId) {
+        const name = document.getElementById('edit-category-name').value.trim();
+        const icon = document.getElementById('edit-category-icon').value;
+
+        if (!name) {
+            this.showNotification('请输入分类名称', 'error');
+            return;
+        }
+
+        this.editCategory(categoryId, name, icon);
+        document.querySelector('.modal-overlay').remove();
     }
     
     // 获取待办项目关联的大纲项目文本
@@ -1924,18 +2798,37 @@ class PersonalGrowthTracker {
 
     renderTodoMindMap() {
         const container = document.getElementById('todoMindMap');
-        const todos = this.data.todos;
+        
+        // 只获取今日待办和逾期待办
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 今日00:00:00
+        
+        const todayTodos = this.data.todos.filter(todo => {
+            if (!todo.date && !todo.targetDate && !todo.createdDate) return true; // 没有日期的视为今日待办
+            
+            // 优先使用 targetDate，然后是 date，最后是 createdDate
+            const todoDateStr = todo.targetDate || todo.date || todo.createdDate;
+            if (!todoDateStr) return true;
+            
+            const todoDate = new Date(todoDateStr);
+            const todoDateStart = new Date(todoDate.getFullYear(), todoDate.getMonth(), todoDate.getDate()); // 待办日期00:00:00
+            
+            const isToday = todoDateStart.getTime() === todayStart.getTime();
+            const isOverdue = todoDateStart.getTime() < todayStart.getTime();
+            
+            return isToday || isOverdue;
+        });
         
         container.innerHTML = '';
         
-        if (todos.length === 0) {
-            container.innerHTML = '<div class="empty-state">暂无待办事项</div>';
+        if (todayTodos.length === 0) {
+            container.innerHTML = '<div class="empty-state">暂无今日待办事项</div>';
             return;
         }
         
         // 按分类和大纲组织待办事项
         const todosByCategory = {};
-        todos.forEach(todo => {
+        todayTodos.forEach(todo => {
             if (!todosByCategory[todo.category]) {
                 todosByCategory[todo.category] = {
                     withOutline: {},
