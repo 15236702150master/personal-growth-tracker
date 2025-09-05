@@ -2804,6 +2804,9 @@ class PersonalGrowthTracker {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 今日00:00:00
         
         const todayTodos = this.data.todos.filter(todo => {
+            // 排除已完成的待办事项
+            if (todo.completed) return false;
+            
             if (!todo.date && !todo.targetDate && !todo.createdDate) return true; // 没有日期的视为今日待办
             
             // 优先使用 targetDate，然后是 date，最后是 createdDate
