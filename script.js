@@ -99,14 +99,16 @@ class PersonalGrowthTracker {
     
     // 数据迁移：为现有数据添加新字段
     migrateExistingData() {
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         
         // 迁移今日待办数据
         this.data.todos.forEach(todo => {
             if (!todo.createdDate) {
                 // 如果没有创建日期，使用createdAt推算或默认为今天
                 if (todo.createdAt) {
-                    todo.createdDate = new Date(todo.createdAt).toISOString().split('T')[0];
+                    const createdDate = new Date(todo.createdAt);
+                    todo.createdDate = createdDate.getFullYear() + '-' + String(createdDate.getMonth() + 1).padStart(2, '0') + '-' + String(createdDate.getDate()).padStart(2, '0');
                 } else {
                     todo.createdDate = today;
                 }
@@ -115,8 +117,12 @@ class PersonalGrowthTracker {
                 todo.targetDate = todo.createdDate; // 默认目标日期等于创建日期
             }
             if (!todo.hasOwnProperty('completedDate')) {
-                todo.completedDate = todo.completed && todo.completedAt ? 
-                    new Date(todo.completedAt).toISOString().split('T')[0] : null;
+                if (todo.completed && todo.completedAt) {
+                    const completedDate = new Date(todo.completedAt);
+                    todo.completedDate = completedDate.getFullYear() + '-' + String(completedDate.getMonth() + 1).padStart(2, '0') + '-' + String(completedDate.getDate()).padStart(2, '0');
+                } else {
+                    todo.completedDate = null;
+                }
             }
             if (!todo.hasOwnProperty('isOverdue')) {
                 todo.isOverdue = todo.completed && todo.completedDate && todo.targetDate < todo.completedDate;
@@ -127,7 +133,8 @@ class PersonalGrowthTracker {
         this.data.tomorrowTodos.forEach(todo => {
             if (!todo.createdDate) {
                 if (todo.createdAt) {
-                    todo.createdDate = new Date(todo.createdAt).toISOString().split('T')[0];
+                    const createdDate = new Date(todo.createdAt);
+                    todo.createdDate = createdDate.getFullYear() + '-' + String(createdDate.getMonth() + 1).padStart(2, '0') + '-' + String(createdDate.getDate()).padStart(2, '0');
                 } else {
                     todo.createdDate = today;
                 }
@@ -135,11 +142,15 @@ class PersonalGrowthTracker {
             if (!todo.targetDate) {
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                todo.targetDate = tomorrow.toISOString().split('T')[0];
+                todo.targetDate = tomorrow.getFullYear() + '-' + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + String(tomorrow.getDate()).padStart(2, '0');
             }
             if (!todo.hasOwnProperty('completedDate')) {
-                todo.completedDate = todo.completed && todo.completedAt ? 
-                    new Date(todo.completedAt).toISOString().split('T')[0] : null;
+                if (todo.completed && todo.completedAt) {
+                    const completedDate = new Date(todo.completedAt);
+                    todo.completedDate = completedDate.getFullYear() + '-' + String(completedDate.getMonth() + 1).padStart(2, '0') + '-' + String(completedDate.getDate()).padStart(2, '0');
+                } else {
+                    todo.completedDate = null;
+                }
             }
             if (!todo.hasOwnProperty('isOverdue')) {
                 todo.isOverdue = false; // 明日待办默认不逾期
@@ -149,10 +160,12 @@ class PersonalGrowthTracker {
         // 迁移历史记录数据
         this.data.history.forEach(item => {
             if (!item.createdDate) {
-                item.createdDate = new Date(item.timestamp).toISOString().split('T')[0];
+                const createdDate = new Date(item.timestamp);
+                item.createdDate = createdDate.getFullYear() + '-' + String(createdDate.getMonth() + 1).padStart(2, '0') + '-' + String(createdDate.getDate()).padStart(2, '0');
             }
             if (!item.completedDate) {
-                item.completedDate = new Date(item.timestamp).toISOString().split('T')[0];
+                const completedDate = new Date(item.timestamp);
+                item.completedDate = completedDate.getFullYear() + '-' + String(completedDate.getMonth() + 1).padStart(2, '0') + '-' + String(completedDate.getDate()).padStart(2, '0');
             }
             if (!item.hasOwnProperty('isOverdue')) {
                 item.isOverdue = false; // 历史记录默认不逾期
@@ -167,7 +180,7 @@ class PersonalGrowthTracker {
     // 检查日期重置 - 改为00:00精确切换
     checkDailyReset() {
         const now = new Date();
-        const today = now.toISOString().split('T')[0]; // YYYY-MM-DD格式
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // YYYY-MM-DD格式
         const lastDate = this.data.stats.lastActiveDate;
         
         if (lastDate && lastDate !== today) {
@@ -177,7 +190,7 @@ class PersonalGrowthTracker {
             // 检查是否连续
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            const yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
             
             if (lastDate !== yesterdayStr) {
                 this.data.stats.streakDays = 0;
@@ -225,7 +238,8 @@ class PersonalGrowthTracker {
     
     // 处理逾期待办事项
     processOverdueTodos() {
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         
         this.data.todos.forEach(todo => {
             if (!todo.completed && todo.targetDate < today) {
@@ -705,7 +719,7 @@ class PersonalGrowthTracker {
     // 今日待办管理
     addTodoItem(text, category = null, outlineId = null, isLocked = false) {
         const now = new Date();
-        const today = now.toISOString().split('T')[0]; // YYYY-MM-DD格式
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // 使用本地时间的YYYY-MM-DD格式
         
         const todo = {
             id: Date.now() + Math.random(),
@@ -732,7 +746,7 @@ class PersonalGrowthTracker {
         const todo = this.data.todos.find(t => t.id === id);
         if (todo) {
             const now = new Date();
-            const today = now.toISOString().split('T')[0];
+            const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             
             todo.completed = !todo.completed;
             todo.completedAt = todo.completed ? new Date().toISOString() : null;
